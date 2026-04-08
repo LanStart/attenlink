@@ -15,7 +15,7 @@ jobs:
             target: apk
             build_cmd: flutter build apk --release
             artifact_name: app-release.apk
-            artifact_path: AttenLink/build/app/outputs/flutter-apk/app-release.apk
+            artifact_path: build/app/outputs/flutter-apk/app-release.apk
           - os: ubuntu-latest
             target: linux
             build_cmd: |
@@ -25,23 +25,19 @@ jobs:
               cd build/linux/x64/release/bundle
               tar -czvf ../../../../../attenlink-linux.tar.gz *
             artifact_name: attenlink-linux.tar.gz
-            artifact_path: AttenLink/attenlink-linux.tar.gz
+            artifact_path: attenlink-linux.tar.gz
           - os: windows-latest
             target: windows
             build_cmd: flutter build windows --release
             artifact_name: attenlink-windows.zip
-            artifact_path: AttenLink/build/windows/x64/runner/Release/*
+            artifact_path: build/windows/x64/runner/Release/*
           - os: macos-latest
             target: macos
             build_cmd: flutter build macos --release
             artifact_name: attenlink-macos.app
-            artifact_path: AttenLink/build/macos/Build/Products/Release/attenlink.app
+            artifact_path: build/macos/Build/Products/Release/attenlink.app
 
     runs-on: ${{ matrix.os }}
-
-    defaults:
-      run:
-        working-directory: ./AttenLink
 
     steps:
       - uses: actions/checkout@v4
