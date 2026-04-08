@@ -62,6 +62,10 @@ jobs:
       - name: Flutter Pub Get
         run: flutter pub get
 
+      - name: Create Native Platforms (if missing)
+        run: flutter create .
+        shell: bash
+
       - name: Build
         run: ${{ matrix.build_cmd }}
         shell: bash
