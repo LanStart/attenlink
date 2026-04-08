@@ -40,7 +40,8 @@ jobs:
     runs-on: ${{ matrix.os }}
 
     steps:
-      - uses: actions/checkout@v4
+      - name: Checkout repository
+        uses: actions/checkout@v4
 
       - name: Setup Java
         if: matrix.target == 'apk'
@@ -74,6 +75,10 @@ jobs:
 
       - name: Flutter Pub Get
         run: flutter pub get
+
+      - name: Create Native Platforms (if missing)
+        run: flutter create .
+        shell: bash
 
       - name: Build
         run: ${{ matrix.build_cmd }}
