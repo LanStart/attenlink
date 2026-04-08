@@ -15,6 +15,9 @@ class _SettingsScreenState extends State<SettingsScreen> {
   final TextEditingController _apiKeyController = TextEditingController();
   final TextEditingController _baseUrlController = TextEditingController();
 
+  String _searchProvider = 'duckduckgo';
+  final TextEditingController _searchApiKeyController = TextEditingController();
+
   @override
   void initState() {
     super.initState();
@@ -24,11 +27,14 @@ class _SettingsScreenState extends State<SettingsScreen> {
   Future<void> _loadSettings() async {
     final urls = await _settingsRepository.getRssUrls();
     final aiConfig = await _settingsRepository.getAIConfig();
+    final searchConfig = await _settingsRepository.getSearchConfig();
     setState(() {
       _rssUrls = urls;
       _aiProvider = aiConfig['provider'] ?? 'openai';
       _apiKeyController.text = aiConfig['api_key'] ?? '';
       _baseUrlController.text = aiConfig['base_url'] ?? '';
+      _searchProvider = searchConfig['provider'] ?? 'duckduckgo';
+      _searchApiKeyController.text = searchConfig['api_key'] ?? '';
     });
   }
 
@@ -38,9 +44,13 @@ class _SettingsScreenState extends State<SettingsScreen> {
       _apiKeyController.text,
       _baseUrlController.text,
     );
+    await _settingsRepository.saveSearchConfig(
+      _searchProvider,
+      _searchApiKeyController.text,
+    );
     if (mounted) {
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('AI配置已保存')),
+        const SnackBar(content: Text('配置已保存')),
       );
     }
   }
@@ -147,9 +157,37 @@ class _SettingsScreenState extends State<SettingsScreen> {
             ),
           ),
           const SizedBox(height: 16),
+          const Divider(height: 32),
+          const Text('搜索引擎配置 (MCP)', style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
+          const SizedBox(height: 8),
+          DropdownButtonFormField<String>(
+            value: _searchProvider,
+            isExpanded: true,
+            items: const [
+              DropdownMenuItem(value: 'duckduckgo', child: Text('DuckDuckGo (无需Key)')),
+              DropdownMenuItem(value: 'bing', child: Text('Microsoft Bing')),
+              DropdownMenuItem(value: 'google', child: Text('Google Search')),
+              DropdownMenuItem(value: 'baidu', child: Text('Baidu')),
+            ],
+            onChanged: (val) {
+              if (val != null) {
+                setState(() => _searchProvider = val);
+              }
+            },
+          ),
+          const SizedBox(height: 8),
+          TextField(
+            controller: _searchApiKeyController,
+            decoration: const InputDecoration(
+              labelText: 'Search API Key (可选)',
+              border: OutlineInputBorder(),
+            ),
+            obscureText: true,
+          ),
+          const SizedBox(height: 16),
           ElevatedButton(
             onPressed: _saveAIConfig,
-            child: const Text('保存AI配置'),
+            child: const Text('保存所有配置'),
           ),
         ],
       ),

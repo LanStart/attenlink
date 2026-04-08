@@ -6,6 +6,23 @@ class SettingsRepository {
   static const String _aiApiKeyKey = 'ai_api_key';
   static const String _aiBaseUrlKey = 'ai_base_url';
 
+  static const String _searchProviderKey = 'search_provider';
+  static const String _searchApiKeyKey = 'search_api_key';
+
+  Future<void> saveSearchConfig(String provider, String apiKey) async {
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setString(_searchProviderKey, provider);
+    await prefs.setString(_searchApiKeyKey, apiKey);
+  }
+
+  Future<Map<String, String>> getSearchConfig() async {
+    final prefs = await SharedPreferences.getInstance();
+    return {
+      'provider': prefs.getString(_searchProviderKey) ?? 'duckduckgo',
+      'api_key': prefs.getString(_searchApiKeyKey) ?? '',
+    };
+  }
+
   Future<void> saveRssUrls(List<String> urls) async {
     final prefs = await SharedPreferences.getInstance();
     await prefs.setStringList(_rssUrlsKey, urls);
