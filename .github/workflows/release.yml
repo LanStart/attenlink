@@ -23,7 +23,8 @@ jobs:
             target: linux
             build_cmd: |
               sudo apt-get update -y
-              sudo apt-get install -y clang cmake ninja-build pkg-config libgtk-3-dev liblzma-dev
+              sudo apt-get install -y clang cmake git ninja-build pkg-config libgtk-3-dev liblzma-dev libstdc++-12-dev
+              flutter config --enable-linux-desktop
               flutter build linux --release
             artifact_name: attenlink-linux.tar.gz
             artifact_path: attenlink-linux.tar.gz
