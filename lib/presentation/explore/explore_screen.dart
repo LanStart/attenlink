@@ -1,6 +1,5 @@
 import 'package:flutter/material.dart';
 import 'package:swipe_cards/swipe_cards.dart';
-import 'package:webfeed_revised/domain/rss_item.dart';
 import '../../data/repositories/settings_repository.dart';
 import '../../data/services/rss_service.dart';
 import '../../data/services/ai_service_factory.dart';

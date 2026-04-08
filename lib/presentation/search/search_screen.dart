@@ -1,5 +1,4 @@
 import 'package:flutter/material.dart';
-import 'package:webfeed_revised/domain/rss_item.dart';
 import '../../data/repositories/settings_repository.dart';
 import '../../data/services/rss_service.dart';
 import 'package:url_launcher/url_launcher.dart';
@@ -14,9 +13,10 @@ class SearchScreen extends StatefulWidget {
 class _SearchScreenState extends State<SearchScreen> {
   final RssService _rssService = RssService();
   final SettingsRepository _settingsRepository = SettingsRepository();
+  final TextEditingController _searchController = TextEditingController();
   
-  List<RssItem> _allItems = [];
-  List<RssItem> _filteredItems = [];
+  List<FeedItem> _allItems = [];
+  List<FeedItem> _filteredItems = [];
   bool _isLoading = true;
   String _query = '';
 

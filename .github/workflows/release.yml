@@ -59,6 +59,16 @@ jobs:
           channel: 'stable'
           cache: true
 
+      - name: Extract Version
+        id: version
+        run: |
+          TAG_NAME=${GITHUB_REF#refs/tags/}
+          VERSION=${TAG_NAME#v}
+          echo "version=$VERSION" >> $GITHUB_OUTPUT
+          echo "run_number=$GITHUB_RUN_NUMBER" >> $GITHUB_OUTPUT
+          sed -i "s/^version: .*/version: $VERSION+$GITHUB_RUN_NUMBER/g" pubspec.yaml
+        shell: bash
+
       - name: Flutter Pub Get
         run: flutter pub get
 
