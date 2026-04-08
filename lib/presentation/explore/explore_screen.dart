@@ -166,7 +166,9 @@ class _ExploreScreenState extends State<ExploreScreen> {
       nopeAction: () => _handleNope(factModel),
     );
     
-    _swipeItems.insert(_matchEngine!.currentItemIndex + 1, newItem);
+    // _matchEngine!.currentItemIndex has been removed in swipe_cards ^2.0.0
+    // As a workaround, we append the item to the end of the remaining list
+    _swipeItems.add(newItem);
     setState(() {}); // refresh UI to show the card exists
   }
 
