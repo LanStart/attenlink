@@ -56,6 +56,23 @@ jobs:
         with:
           flutter-version: '3.22.0'
           channel: 'stable'
+          cache: true
+
+      - name: Extract Version
+        id: version
+        run: |
+          TAG_NAME=${GITHUB_REF#refs/tags/}
+          VERSION=${TAG_NAME#v}
+          echo "version=$VERSION" >> $GITHUB_OUTPUT
+          echo "run_number=$GITHUB_RUN_NUMBER" >> $GITHUB_OUTPUT
+          
+          # Handle sed differences between GNU sed (Linux) and BSD sed (macOS)
+          if [[ "$RUNNER_OS" == "macOS" ]]; then
+            sed -i '' "s/^version: .*/version: $VERSION+$GITHUB_RUN_NUMBER/g" pubspec.yaml
+          else
+            sed -i "s/^version: .*/version: $VERSION+$GITHUB_RUN_NUMBER/g" pubspec.yaml
+          fi
+        shell: bash
 
       - name: Flutter Pub Get
         run: flutter pub get
