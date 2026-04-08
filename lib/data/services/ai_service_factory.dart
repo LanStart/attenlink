@@ -1,4 +1,4 @@
-import '../ai_service.dart';
+import 'ai_service.dart';
 import 'llm/openai_client.dart';
 import 'llm/claude_client.dart';
 import 'llm/gemini_client.dart';

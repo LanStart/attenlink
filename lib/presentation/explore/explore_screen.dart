@@ -166,7 +166,7 @@ class _ExploreScreenState extends State<ExploreScreen> {
       nopeAction: () => _handleNope(factModel),
     );
     
-    _swipeItems.insert(_matchEngine!.currentItemIndex + 1, newItem);
+    _swipeItems.add(newItem);
     setState(() {}); // refresh UI to show the card exists
   }
 
