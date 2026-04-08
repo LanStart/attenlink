@@ -8,45 +8,47 @@ on:
 
 jobs:
   build:
+    name: Build ${{ matrix.target }}
     strategy:
       matrix:
         include:
           - os: ubuntu-latest
             target: apk
-            build_cmd: flutter build apk --release
-            artifact_name: app-release.apk
-            artifact_path: build/app/outputs/flutter-apk/app-release.apk
+            build_cmd: |
+              flutter build apk --release
+              mv build/app/outputs/flutter-apk/app-release.apk attenlink-android.apk
+            artifact_name: attenlink-android.apk
+            artifact_path: attenlink-android.apk
           - os: ubuntu-latest
             target: linux
             build_cmd: |
               sudo apt-get update -y
               sudo apt-get install -y clang cmake ninja-build pkg-config libgtk-3-dev liblzma-dev
               flutter build linux --release
-              cd build/linux/x64/release/bundle
-              tar -czvf ../../../../../attenlink-linux.tar.gz *
             artifact_name: attenlink-linux.tar.gz
             artifact_path: attenlink-linux.tar.gz
           - os: windows-latest
             target: windows
             build_cmd: flutter build windows --release
             artifact_name: attenlink-windows.zip
-            artifact_path: build/windows/x64/runner/Release/*
+            artifact_path: attenlink-windows.zip
           - os: macos-latest
             target: macos
             build_cmd: flutter build macos --release
-            artifact_name: attenlink-macos.app
-            artifact_path: build/macos/Build/Products/Release/attenlink.app
+            artifact_name: attenlink-macos.zip
+            artifact_path: attenlink-macos.zip
 
     runs-on: ${{ matrix.os }}
 
     steps:
-      - uses: actions/checkout@v4
+      - name: Checkout repository
+        uses: actions/checkout@v4
         with:
           submodules: recursive
 
       - name: Setup Java
         if: matrix.target == 'apk'
-        uses: actions/setup-java@v3
+        uses: actions/setup-java@v4
         with:
           distribution: 'zulu'
           java-version: '17'
@@ -56,6 +58,7 @@ jobs:
         with:
           flutter-version: '3.22.0'
           channel: 'stable'
+          cache: true
 
       - name: Flutter Pub Get
         run: flutter pub get
@@ -64,43 +67,50 @@ jobs:
         run: ${{ matrix.build_cmd }}
         shell: bash
 
-      - name: Upload Artifacts
+      - name: Package Linux
+        if: matrix.target == 'linux'
+        run: |
+          cd build/linux/x64/release
+          mv bundle attenlink
+          tar -czvf ../../../../attenlink-linux.tar.gz attenlink
+        shell: bash
+
+      - name: Package Windows
+        if: matrix.target == 'windows'
+        run: |
+          Rename-Item -Path build\windows\x64\runner\Release -NewName attenlink
+          Compress-Archive -Path build\windows\x64\runner\attenlink -DestinationPath attenlink-windows.zip
+        shell: pwsh
+
+      - name: Package macOS
+        if: matrix.target == 'macos'
+        run: |
+          cd build/macos/Build/Products/Release
+          ditto -c -k --sequesterRsrc --keepParent attenlink.app ../../../../../attenlink-macos.zip
+        shell: bash
+
+      - name: Upload Artifact
         uses: actions/upload-artifact@v4
         with:
           name: ${{ matrix.artifact_name }}
           path: ${{ matrix.artifact_path }}
+          if-no-files-found: error
 
   release:
     needs: build
     runs-on: ubuntu-latest
+    permissions:
+      contents: write
     steps:
-      - uses: actions/checkout@v4
-
       - name: Download Artifacts
         uses: actions/download-artifact@v4
         with:
           path: artifacts
-
-      - name: Zip Windows
-        run: |
-          cd artifacts/attenlink-windows.zip
-          zip -r ../../attenlink-windows.zip .
-          cd ../..
-
-      - name: Zip MacOS
-        run: |
-          cd artifacts/attenlink-macos.app
-          zip -r ../../attenlink-macos.zip .
-          cd ../..
+          merge-multiple: true
 
       - name: Create Release
-        uses: softprops/action-gh-release@v1
+        uses: softprops/action-gh-release@v2
         if: startsWith(github.ref, 'refs/tags/')
         with:
-          files: |
-            artifacts/app-release.apk/app-release.apk
-            artifacts/attenlink-linux.tar.gz/attenlink-linux.tar.gz
-            attenlink-windows.zip
-            attenlink-macos.zip
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          files: artifacts/*
+          generate_release_notes: true
