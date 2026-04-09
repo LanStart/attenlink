@@ -31,11 +31,9 @@ class SettingsPage extends StatelessWidget {
                   const SizedBox(height: 24),
                   
                   // AI Provider Config
-                  _buildSectionHeader('AI 查证中枢', theme),
-                  _buildAiProviderCard('Gemini 3 Flash', true, theme, colorScheme),
-                  _buildAiProviderCard('GPT-4o', false, theme, colorScheme),
-                  _buildSettingTile(Icons.vpn_key, 'API 密钥配置', '管理各大 AI 服务商密钥', theme),
-
+                  _buildSectionHeader('AI 查证中枢 (用户自定义)', theme),
+                  _buildAiProviderConfigCard(theme, colorScheme),
+                  
                   const SizedBox(height: 24),
 
                   // Preferences
@@ -109,6 +107,58 @@ class SettingsPage extends StatelessWidget {
       subtitle: Text(subtitle, style: theme.textTheme.bodySmall),
       trailing: const Icon(Icons.chevron_right),
       onTap: () {},
+    );
+  }
+
+  Widget _buildAiProviderConfigCard(ThemeData theme, ColorScheme colorScheme) {
+    return Card(
+      child: Padding(
+        padding: const EdgeInsets.all(16.0),
+        child: Column(
+          children: [
+            DropdownButtonFormField<String>(
+              decoration: const InputDecoration(labelText: '供应商 (Provider)'),
+              value: 'Gemini',
+              items: ['Gemini', 'OpenAI', 'Kimi', 'DeepSeek', 'GLM']
+                  .map((e) => DropdownMenuItem(value: e, child: Text(e)))
+                  .toList(),
+              onChanged: (val) {},
+            ),
+            const SizedBox(height: 16),
+            TextField(
+              decoration: const InputDecoration(
+                labelText: 'API 密钥 (API Key)',
+                hintText: '输入您的密钥...',
+                prefixIcon: Icon(Icons.password),
+              ),
+              obscureText: true,
+            ),
+            const SizedBox(height: 16),
+            TextField(
+              decoration: const InputDecoration(
+                labelText: '模型名称 (Model)',
+                hintText: '例如: gemini-1.5-flash 或 gpt-4o',
+              ),
+            ),
+            const SizedBox(height: 16),
+            TextField(
+              decoration: const InputDecoration(
+                labelText: '自定义 Base URL',
+                hintText: 'https://...',
+              ),
+            ),
+            const SizedBox(height: 20),
+            FilledButton.icon(
+              onPressed: () {},
+              icon: const Icon(Icons.bolt, size: 18),
+              label: const Text('保存并测试连接'),
+              style: FilledButton.styleFrom(
+                minimumSize: const Size.fromHeight(50),
+              ),
+            ),
+          ],
+        ),
+      ),
     );
   }
 

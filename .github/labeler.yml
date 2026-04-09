@@ -1,0 +1,79 @@
+# Path-based label configuration for actions/labeler
+# Maps file paths to labels automatically applied to PRs
+
+"android":
+  - changed-files:
+    - any-glob-to-any-file: "android/**"
+
+"iOS":
+  - changed-files:
+    - any-glob-to-any-file: "ios/**"
+
+"macOS":
+  - changed-files:
+    - any-glob-to-any-file: "macos/**"
+
+"windows":
+  - changed-files:
+    - any-glob-to-any-file: "windows/**"
+
+"linux":
+  - changed-files:
+    - any-glob-to-any-file: "linux/**"
+
+"UI":
+  - changed-files:
+    - any-glob-to-any-file:
+      - "lib/features/**"
+      - "lib/shared/widgets/**"
+      - "lib/core/theme/**"
+
+"data layer":
+  - changed-files:
+    - any-glob-to-any-file:
+      - "lib/data/**"
+
+"domain layer":
+  - changed-files:
+    - any-glob-to-any-file:
+      - "lib/domain/**"
+
+"core":
+  - changed-files:
+    - any-glob-to-any-file:
+      - "lib/core/**"
+
+"AI":
+  - changed-files:
+    - any-glob-to-any-file:
+      - "lib/data/adapters/ai/**"
+      - "lib/domain/entities/ai_service_provider.dart"
+      - "lib/data/models/ai_provider_config.dart"
+
+"feed":
+  - changed-files:
+    - any-glob-to-any-file:
+      - "lib/data/datasources/remote/**"
+      - "lib/data/models/feed_source_config.dart"
+
+"CI/CD":
+  - changed-files:
+    - any-glob-to-any-file:
+      - ".github/**"
+      - "*.yaml"
+
+"dependencies":
+  - changed-files:
+    - any-glob-to-any-file:
+      - "pubspec.yaml"
+      - "pubspec.lock"
+
+"testing":
+  - changed-files:
+    - any-glob-to-any-file: "test/**"
+
+"documentation":
+  - changed-files:
+    - any-glob-to-any-file:
+      - "README.md"
+      - "**/*.md"

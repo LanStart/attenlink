@@ -11,6 +11,10 @@ on:
         required: true
         type: string
 
+concurrency:
+  group: release-${{ github.ref }}
+  cancel-in-progress: true
+
 env:
   FLUTTER_VERSION: '3.x'
 
@@ -52,6 +56,10 @@ jobs:
             os: ubuntu-latest
             build_cmd: flutter build apk --release --split-per-abi
             artifact_path: build/app/outputs/flutter-apk/*.apk
+          - platform: ios
+            os: macos-latest
+            build_cmd: flutter build ios --release --no-codesign
+            artifact_path: build/ios/ipa/*.ipa
           - platform: windows
             os: windows-latest
             build_cmd: flutter build windows --release
@@ -120,6 +128,18 @@ jobs:
           ditto -c -k --keepParent "build/macos/Build/Products/Release/attenlink.app" "$zipName"
           echo "MAC_ZIP=$zipName" >> $GITHUB_ENV
 
+      - name: Package iOS
+        if: matrix.platform == 'ios'
+        run: |
+          zipName="AttenLink-${{ needs.prepare.outputs.tag }}-ios-ipa.zip"
+          if [ -d "build/ios/ipa" ]; then
+            cd build/ios/ipa && zip -r "../../$zipName" . && cd ../..
+          else
+            # If no .ipa, package the .app
+            cd build/ios/iphoneos && mkdir -p Payload && cp -r *.app Payload/ && zip -r "../../../../$zipName" Payload && cd ../../../..
+          fi
+          echo "IOS_ZIP=$zipName" >> $GITHUB_ENV
+
       - name: Upload Artifacts
         uses: actions/upload-artifact@v4
         with:
@@ -150,4 +170,5 @@ jobs:
           name: "AttenLink ${{ needs.prepare.outputs.tag }}"
           draft: true
           prerelease: ${{ needs.prepare.outputs.is_prerelease }}
+          generateReleaseNotes: true
           token: ${{ secrets.GITHUB_TOKEN }}
