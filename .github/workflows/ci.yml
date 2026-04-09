@@ -19,7 +19,7 @@ concurrency:
   cancel-in-progress: true
 
 env:
-  FLUTTER_VERSION: '3.x'
+  FLUTTER_VERSION: '3.24.0'
 
 jobs:
   analyze:
@@ -40,6 +40,16 @@ jobs:
 
       - name: Install dependencies
         run: flutter pub get
+
+      - name: Cache build_runner
+        uses: actions/cache@v4
+        with:
+          path: |
+            .dart_tool/build
+            lib/**/*.g.dart
+          key: build-runner-${{ hashFiles('pubspec.yaml', 'lib/**/*.dart') }}
+          restore-keys: |
+            build-runner-
 
       - name: Run build_runner (Required for Isar)
         run: dart run build_runner build --delete-conflicting-outputs
