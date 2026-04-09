@@ -130,7 +130,7 @@ class JsonFeedDataSource implements FeedSource {
 
     // Try extracting from content_html
     final html = item.contentHtml ?? '';
-    final imgMatch = RegExp(r'<img[^>]+src=["\']([^"\']+)["\']').firstMatch(html);
+    final imgMatch = RegExp(r'''<img[^>]+src=["']([^"']+)["']''').firstMatch(html);
     if (imgMatch != null) return imgMatch.group(1) ?? '';
 
     return '';

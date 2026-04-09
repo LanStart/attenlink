@@ -134,7 +134,7 @@ class RssFeedDataSource implements FeedSource {
 
     // Try extracting from description HTML
     final desc = item.description ?? '';
-    final imgMatch = RegExp(r'<img[^>]+src=["\']([^"\']+)["\']').firstMatch(desc);
+    final imgMatch = RegExp(r'''<img[^>]+src=["']([^"']+)["']''').firstMatch(desc);
     if (imgMatch != null) return imgMatch.group(1) ?? '';
 
     return '';

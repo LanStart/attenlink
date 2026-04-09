@@ -136,7 +136,7 @@ class AtomFeedDataSource implements FeedSource {
 
     // Try extracting from content HTML
     final content = entry.content ?? entry.summary ?? '';
-    final imgMatch = RegExp(r'<img[^>]+src=["\']([^"\']+)["\']').firstMatch(content);
+    final imgMatch = RegExp(r'''<img[^>]+src=["']([^"']+)["']''').firstMatch(content);
     if (imgMatch != null) return imgMatch.group(1) ?? '';
 
     return '';

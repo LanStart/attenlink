@@ -1,3 +1,5 @@
+import 'dart:math' as math;
+
 /// News weight calculation algorithm
 /// Multi-dimensional scoring based on user behavior, verification status, and recency
 class WeightAlgorithm {
