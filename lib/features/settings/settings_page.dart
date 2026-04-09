@@ -1,533 +1,135 @@
 import 'package:flutter/material.dart';
-import 'package:flutter_riverpod/flutter_riverpod.dart';
 
-import '../../core/extensions/context_extensions.dart';
-import 'feed_source_page.dart';
-import 'ai_provider_page.dart';
-
-/// Settings Page - Feed source management + AI provider configuration
-class SettingsPage extends ConsumerWidget {
+class SettingsPage extends StatelessWidget {
   const SettingsPage({super.key});
 
   @override
-  Widget build(BuildContext context, WidgetRef ref) {
-    final colorScheme = context.colorScheme;
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final colorScheme = theme.colorScheme;
 
     return Scaffold(
-      body: SafeArea(
-        child: CustomScrollView(
-          slivers: [
-            // Title
-            SliverToBoxAdapter(
-              child: Padding(
-                padding: const EdgeInsets.fromLTRB(20, 12, 20, 16),
-                child: Text(
-                  '设置',
-                  style: context.textTheme.headlineSmall?.copyWith(
-                    fontWeight: FontWeight.w700,
-                  ),
-                ),
-              ),
-            ),
-
-            // User stats card
-            SliverToBoxAdapter(
-              child: _UserStatsCard(),
-            ),
-
-            // Feed sources section
-            SliverToBoxAdapter(
-              child: _SectionHeader(
-                icon: Icons.rss_feed,
-                title: '资讯源管理',
-                subtitle: '添加和管理你的新闻来源',
-                onTap: () {
-                  Navigator.of(context).push(
-                    MaterialPageRoute(
-                      builder: (_) => const FeedSourcePage(),
-                    ),
-                  );
-                },
-              ),
-            ),
-
-            // AI providers section
-            SliverToBoxAdapter(
-              child: _SectionHeader(
-                icon: Icons.smart_toy,
-                title: 'AI 服务配置',
-                subtitle: '配置AI服务商和API密钥',
-                onTap: () {
-                  Navigator.of(context).push(
-                    MaterialPageRoute(
-                      builder: (_) => const AiProviderPage(),
-                    ),
-                  );
-                },
-              ),
-            ),
-
-            // Connected AI providers preview
-            SliverToBoxAdapter(
-              child: _AiProviderPreview(),
-            ),
-
-            // General settings
-            SliverToBoxAdapter(
-              child: Padding(
-                padding: const EdgeInsets.fromLTRB(20, 8, 20, 0),
-                child: Text(
-                  '通用设置',
-                  style: context.textTheme.titleMedium?.copyWith(
-                    fontWeight: FontWeight.w600,
-                    color: colorScheme.onSurfaceVariant,
-                  ),
-                ),
-              ),
-            ),
-
-            SliverToBoxAdapter(
-              child: _SettingsSection(
+      body: CustomScrollView(
+        slivers: [
+          SliverAppBar.large(
+            title: const Text('设置'),
+          ),
+          SliverToBoxAdapter(
+            child: Padding(
+              padding: const EdgeInsets.all(16.0),
+              child: Column(
                 children: [
-                  _SettingsTile(
-                    icon: Icons.dark_mode,
-                    title: '深色模式',
-                    subtitle: '跟随系统设置',
-                    trailing: Switch.adaptive(
-                      value: true,
-                      onChanged: (value) {
-                        // TODO: Theme toggle
-                      },
-                    ),
+                  // User Stats Header
+                  _buildUserHeader(theme, colorScheme),
+                  const SizedBox(height: 24),
+
+                  // Feed Source Management
+                  _buildSectionHeader('资讯源管理', theme),
+                  _buildSettingTile(Icons.rss_feed, 'RSS/Atom 管理', '添加或删除您的资讯订阅', theme),
+                  _buildSettingTile(Icons.category, '抓取偏好', '按主题和来源调整抓取频率', theme),
+                  
+                  const SizedBox(height: 24),
+                  
+                  // AI Provider Config
+                  _buildSectionHeader('AI 查证中枢', theme),
+                  _buildAiProviderCard('Gemini 3 Flash', true, theme, colorScheme),
+                  _buildAiProviderCard('GPT-4o', false, theme, colorScheme),
+                  _buildSettingTile(Icons.vpn_key, 'API 密钥配置', '管理各大 AI 服务商密钥', theme),
+
+                  const SizedBox(height: 24),
+
+                  // Preferences
+                  _buildSectionHeader('偏好设置', theme),
+                  SwitchListTile(
+                    title: const Text('深色模式'),
+                    value: theme.brightness == Brightness.dark,
+                    onChanged: (val) {},
                   ),
-                  _SettingsTile(
-                    icon: Icons.notifications_outlined,
-                    title: '推送通知',
-                    subtitle: '查证结果和重要新闻提醒',
-                    trailing: Switch.adaptive(
-                      value: true,
-                      onChanged: (value) {
-                        // TODO: Notification toggle
-                      },
-                    ),
-                  ),
-                  _SettingsTile(
-                    icon: Icons.translate,
-                    title: '语言',
-                    subtitle: '简体中文',
-                    trailing: const Icon(Icons.chevron_right),
-                    onTap: () {
-                      // TODO: Language settings
-                    },
-                  ),
-                  _SettingsTile(
-                    icon: Icons.auto_delete,
-                    title: '缓存管理',
-                    subtitle: '清除本地缓存数据',
-                    trailing: const Icon(Icons.chevron_right),
-                    onTap: () {
-                      // TODO: Cache management
-                    },
-                  ),
+                  _buildSettingTile(Icons.notifications, '个性化通知', '基于查证结果的智能提醒', theme),
+                  
+                  const SizedBox(height: 40),
                 ],
               ),
             ),
-
-            // About section
-            SliverToBoxAdapter(
-              child: Padding(
-                padding: const EdgeInsets.fromLTRB(20, 24, 20, 0),
-                child: Text(
-                  '关于',
-                  style: context.textTheme.titleMedium?.copyWith(
-                    fontWeight: FontWeight.w600,
-                    color: colorScheme.onSurfaceVariant,
-                  ),
-                ),
-              ),
-            ),
-
-            SliverToBoxAdapter(
-              child: _SettingsSection(
-                children: [
-                  _SettingsTile(
-                    icon: Icons.info_outline,
-                    title: '关于 AttenLink',
-                    subtitle: 'v1.0.0 · 专注事实的AI资讯聚合',
-                    trailing: const Icon(Icons.chevron_right),
-                    onTap: () {
-                      showAboutDialog(
-                        context: context,
-                        applicationName: 'AttenLink',
-                        applicationVersion: '1.0.0',
-                        applicationLegalese: '专注事实的AI资讯聚合工具',
-                      );
-                    },
-                  ),
-                  _SettingsTile(
-                    icon: Icons.source,
-                    title: '开源许可',
-                    subtitle: '查看第三方开源库',
-                    trailing: const Icon(Icons.chevron_right),
-                    onTap: () {
-                      showLicensePage(
-                        context: context,
-                        applicationName: 'AttenLink',
-                      );
-                    },
-                  ),
-                ],
-              ),
-            ),
-
-            // Bottom padding
-            const SliverToBoxAdapter(
-              child: SizedBox(height: 32),
-            ),
-          ],
-        ),
-      ),
-    );
-  }
-}
-
-/// User stats card
-class _UserStatsCard extends StatelessWidget {
-  @override
-  Widget build(BuildContext context) {
-    final colorScheme = context.colorScheme;
-
-    return Padding(
-      padding: const EdgeInsets.fromLTRB(20, 0, 20, 16),
-      child: Card(
-        color: colorScheme.primaryContainer,
-        child: Padding(
-          padding: const EdgeInsets.all(20),
-          child: Row(
-            children: [
-              // Avatar
-              Container(
-                width: 56,
-                height: 56,
-                decoration: BoxDecoration(
-                  color: colorScheme.primary,
-                  shape: BoxShape.circle,
-                ),
-                child: Icon(
-                  Icons.person,
-                  color: colorScheme.onPrimary,
-                  size: 28,
-                ),
-              ),
-              const SizedBox(width: 16),
-              // Stats
-              Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(
-                      'AttenLink 用户',
-                      style: context.textTheme.titleMedium?.copyWith(
-                        fontWeight: FontWeight.w600,
-                        color: colorScheme.onPrimaryContainer,
-                      ),
-                    ),
-                    const SizedBox(height: 8),
-                    Row(
-                      children: [
-                        _StatItem(label: '阅读', value: '128'),
-                        const SizedBox(width: 24),
-                        _StatItem(label: '已查证', value: '45'),
-                        const SizedBox(width: 24),
-                        _StatItem(label: '订阅源', value: '5'),
-                      ],
-                    ),
-                  ],
-                ),
-              ),
-            ],
-          ),
-        ),
-      ),
-    );
-  }
-}
-
-/// Stat item
-class _StatItem extends StatelessWidget {
-  final String label;
-  final String value;
-
-  const _StatItem({required this.label, required this.value});
-
-  @override
-  Widget build(BuildContext context) {
-    final colorScheme = context.colorScheme;
-
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        Text(
-          value,
-          style: context.textTheme.titleLarge?.copyWith(
-            fontWeight: FontWeight.w700,
-            color: colorScheme.onPrimaryContainer,
-          ),
-        ),
-        Text(
-          label,
-          style: context.textTheme.labelSmall?.copyWith(
-            color: colorScheme.onPrimaryContainer.withValues(alpha: 0.7),
-          ),
-        ),
-      ],
-    );
-  }
-}
-
-/// Section header with navigation
-class _SectionHeader extends StatelessWidget {
-  final IconData icon;
-  final String title;
-  final String subtitle;
-  final VoidCallback onTap;
-
-  const _SectionHeader({
-    required this.icon,
-    required this.title,
-    required this.subtitle,
-    required this.onTap,
-  });
-
-  @override
-  Widget build(BuildContext context) {
-    final colorScheme = context.colorScheme;
-
-    return Padding(
-      padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 4),
-      child: Card(
-        child: InkWell(
-          onTap: onTap,
-          borderRadius: BorderRadius.circular(16),
-          child: Padding(
-            padding: const EdgeInsets.all(16),
-            child: Row(
-              children: [
-                Container(
-                  padding: const EdgeInsets.all(12),
-                  decoration: BoxDecoration(
-                    color: colorScheme.primaryContainer,
-                    borderRadius: BorderRadius.circular(12),
-                  ),
-                  child: Icon(
-                    icon,
-                    color: colorScheme.onPrimaryContainer,
-                    size: 24,
-                  ),
-                ),
-                const SizedBox(width: 16),
-                Expanded(
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Text(
-                        title,
-                        style: context.textTheme.titleSmall?.copyWith(
-                          fontWeight: FontWeight.w600,
-                        ),
-                      ),
-                      const SizedBox(height: 2),
-                      Text(
-                        subtitle,
-                        style: context.textTheme.bodySmall?.copyWith(
-                          color: colorScheme.onSurfaceVariant,
-                        ),
-                      ),
-                    ],
-                  ),
-                ),
-                Icon(
-                  Icons.chevron_right,
-                  color: colorScheme.onSurfaceVariant,
-                ),
-              ],
-            ),
-          ),
-        ),
-      ),
-    );
-  }
-}
-
-/// AI provider preview cards
-class _AiProviderPreview extends StatelessWidget {
-  @override
-  Widget build(BuildContext context) {
-    final colorScheme = context.colorScheme;
-
-    final providers = [
-      _ProviderInfo('OpenAI', 'GPT-4o', true, Colors.green),
-      _ProviderInfo('Claude', 'Claude 3.5', false, Colors.orange),
-      _ProviderInfo('Gemini', 'Gemini Pro', false, Colors.blue),
-      _ProviderInfo('Kimi', 'Moonshot', false, Colors.purple),
-      _ProviderInfo('GLM', 'GLM-4', false, Colors.teal),
-    ];
-
-    return Padding(
-      padding: const EdgeInsets.fromLTRB(20, 8, 20, 16),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Text(
-            'AI 服务商',
-            style: context.textTheme.titleSmall?.copyWith(
-              fontWeight: FontWeight.w600,
-              color: colorScheme.onSurfaceVariant,
-            ),
-          ),
-          const SizedBox(height: 12),
-          Wrap(
-            spacing: 8,
-            runSpacing: 8,
-            children: providers.map((provider) {
-              return Container(
-                padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-                decoration: BoxDecoration(
-                  color: provider.isConnected
-                      ? colorScheme.primaryContainer
-                      : colorScheme.surfaceContainerHighest,
-                  borderRadius: BorderRadius.circular(12),
-                  border: Border.all(
-                    color: provider.isConnected
-                        ? colorScheme.primary.withValues(alpha: 0.3)
-                        : colorScheme.outlineVariant,
-                  ),
-                ),
-                child: Row(
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    Container(
-                      width: 8,
-                      height: 8,
-                      decoration: BoxDecoration(
-                        color: provider.isConnected
-                            ? provider.statusColor
-                            : colorScheme.onSurfaceVariant.withValues(alpha: 0.3),
-                        shape: BoxShape.circle,
-                      ),
-                    ),
-                    const SizedBox(width: 8),
-                    Text(
-                      provider.name,
-                      style: TextStyle(
-                        fontSize: 13,
-                        fontWeight: FontWeight.w600,
-                        fontFamily: 'NotoSansSC',
-                        color: provider.isConnected
-                            ? colorScheme.onPrimaryContainer
-                            : colorScheme.onSurfaceVariant,
-                      ),
-                    ),
-                    if (provider.isConnected) ...[
-                      const SizedBox(width: 6),
-                      Text(
-                        provider.model,
-                        style: TextStyle(
-                          fontSize: 11,
-                          color: colorScheme.onPrimaryContainer.withValues(alpha: 0.7),
-                        ),
-                      ),
-                    ],
-                  ],
-                ),
-              );
-            }).toList(),
           ),
         ],
       ),
     );
   }
-}
 
-/// Provider info
-class _ProviderInfo {
-  final String name;
-  final String model;
-  final bool isConnected;
-  final Color statusColor;
+  Widget _buildUserHeader(ThemeData theme, ColorScheme colorScheme) {
+    return Container(
+      padding: const EdgeInsets.all(24),
+      decoration: BoxDecoration(
+        color: colorScheme.primaryContainer,
+        borderRadius: BorderRadius.circular(24),
+      ),
+      child: Row(
+        children: [
+          CircleAvatar(
+            radius: 32,
+            backgroundColor: colorScheme.primary,
+            child: const Icon(Icons.person, color: Colors.white, size: 32),
+          ),
+          const SizedBox(width: 20),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text('资讯先锋', style: theme.textTheme.titleMedium?.copyWith(fontWeight: FontWeight.bold)),
+                Text('累计阅读: 1,280 | 已查证: 45', style: theme.textTheme.bodySmall),
+              ],
+            ),
+          ),
+        ],
+      ),
+    );
+  }
 
-  const _ProviderInfo(this.name, this.model, this.isConnected, this.statusColor);
-}
-
-/// Settings section
-class _SettingsSection extends StatelessWidget {
-  final List<Widget> children;
-
-  const _SettingsSection({required this.children});
-
-  @override
-  Widget build(BuildContext context) {
+  Widget _buildSectionHeader(String title, ThemeData theme) {
     return Padding(
-      padding: const EdgeInsets.fromLTRB(20, 8, 20, 0),
-      child: Card(
-        child: Column(
-          children: children,
+      padding: const EdgeInsets.symmetric(vertical: 12, horizontal: 8),
+      child: Align(
+        alignment: Alignment.centerLeft,
+        child: Text(
+          title,
+          style: theme.textTheme.labelLarge?.copyWith(
+            color: theme.colorScheme.primary,
+            fontWeight: FontWeight.bold,
+          ),
         ),
       ),
     );
   }
-}
 
-/// Settings tile
-class _SettingsTile extends StatelessWidget {
-  final IconData icon;
-  final String title;
-  final String subtitle;
-  final Widget trailing;
-  final VoidCallback? onTap;
+  Widget _buildSettingTile(IconData icon, String title, String subtitle, ThemeData theme) {
+    return ListTile(
+      leading: Icon(icon, color: theme.colorScheme.primary),
+      title: Text(title),
+      subtitle: Text(subtitle, style: theme.textTheme.bodySmall),
+      trailing: const Icon(Icons.chevron_right),
+      onTap: () {},
+    );
+  }
 
-  const _SettingsTile({
-    required this.icon,
-    required this.title,
-    required this.subtitle,
-    required this.trailing,
-    this.onTap,
-  });
-
-  @override
-  Widget build(BuildContext context) {
-    final colorScheme = context.colorScheme;
-
-    return InkWell(
-      onTap: onTap,
-      borderRadius: BorderRadius.circular(16),
-      child: Padding(
-        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
-        child: Row(
+  Widget _buildAiProviderCard(String name, bool connected, ThemeData theme, ColorScheme colorScheme) {
+    return Card(
+      margin: const EdgeInsets.only(bottom: 8),
+      child: ListTile(
+        title: Text(name),
+        trailing: Row(
+          mainAxisSize: MainAxisSize.min,
           children: [
-            Icon(icon, color: colorScheme.onSurfaceVariant, size: 22),
-            const SizedBox(width: 16),
-            Expanded(
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text(
-                    title,
-                    style: context.textTheme.bodyLarge?.copyWith(
-                      fontWeight: FontWeight.w500,
-                    ),
-                  ),
-                  const SizedBox(height: 2),
-                  Text(
-                    subtitle,
-                    style: context.textTheme.bodySmall?.copyWith(
-                      color: colorScheme.onSurfaceVariant,
-                    ),
-                  ),
-                ],
+            Container(
+              width: 10,
+              height: 10,
+              decoration: BoxDecoration(
+                shape: BoxShape.circle,
+                color: connected ? Colors.green : Colors.grey,
               ),
             ),
-            trailing,
+            const SizedBox(width: 8),
+            Text(connected ? '已连接' : '未连接', style: theme.textTheme.labelSmall),
           ],
         ),
       ),

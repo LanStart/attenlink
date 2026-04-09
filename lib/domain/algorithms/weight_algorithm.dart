@@ -2,33 +2,26 @@
 /// Multi-dimensional scoring based on user behavior, verification status, and recency
 class WeightAlgorithm {
   // Weight factors
-  static const double _likeBonus = 2.0;
-  static const double _dislikePenalty = 0.3;
-  static const double _verifiedBonus = 1.5;
-  static const double _disputedPenalty = 0.5;
-  static const double _readBonus = 1.1;
-  static const double _tagMatchBonus = 1.3;
-  static const double _sourceTrustBonus = 1.2;
-  static const double _recencyDecayFactor = 0.95;
-  static const int _recencyDecayHours = 2;
+  static const double _likeBonus = 2.5;         // Increased bonus for likes
+  static const double _dislikePenalty = 0.2;     // Heavier penalty for dislikes
+  static const double _verifiedBonus = 1.8;      // Bonus for factual verification
+  static const double _disputedPenalty = 0.4;    // Penalty for disputed content
+  static const double _readBonus = 1.2;
+  static const double _longReadBonus = 1.5;      // Special bonus for deep reading
+  static const double _tagMatchBonus = 1.4;
+  static const double _sourceTrustBonus = 1.3;
+  
+  // Recency Decay: More aggressive decay for news
+  static const double _recencyDecayFactor = 0.92; 
+  static const int _recencyDecayHours = 1;       // Decay every hour
 
   /// Calculate the weight score for a news article
-  ///
-  /// [baseWeight] - starting weight (default 1.0)
-  /// [isLiked] - user liked this article
-  /// [isDisliked] - user disliked this article
-  /// [isRead] - user has read this article
-  /// [isVerified] - article has been verified as factual
-  /// [isDisputed] - article has been disputed
-  /// [tagMatchScore] - how well tags match user preferences (0.0-1.0)
-  /// [sourceTrustScore] - trust score of the source (0.0-1.0)
-  /// [publishedAt] - when the article was published
-  /// [now] - current time (for testing)
   static double calculate({
     double baseWeight = 1.0,
     bool isLiked = false,
     bool isDisliked = false,
     bool isRead = false,
+    int readDurationSeconds = 0,
     bool isVerified = false,
     bool isDisputed = false,
     double tagMatchScore = 0.0,
@@ -38,71 +31,62 @@ class WeightAlgorithm {
   }) {
     double weight = baseWeight;
 
-    // User interaction modifiers
+    // 1. User Interaction Modifiers
     if (isLiked) weight *= _likeBonus;
     if (isDisliked) weight *= _dislikePenalty;
-    if (isRead) weight *= _readBonus;
+    if (isRead) {
+      if (readDurationSeconds > 30) {
+        weight *= _longReadBonus;
+      } else {
+        weight *= _readBonus;
+      }
+    }
 
-    // Verification modifiers
+    // 2. Verification Modifiers
     if (isVerified) weight *= _verifiedBonus;
     if (isDisputed) weight *= _disputedPenalty;
 
-    // Preference matching
+    // 3. Preference Matching
     weight *= 1.0 + (tagMatchScore * (_tagMatchBonus - 1.0));
     weight *= 1.0 + (sourceTrustScore * (_sourceTrustBonus - 1.0));
 
-    // Recency decay
+    // 4. Recency Decay (Exponential)
     final currentTime = now ?? DateTime.now();
-    final hoursSincePublish = currentTime.difference(publishedAt).inHours;
-    final decayFactor = _hoursToDecayFactor(hoursSincePublish);
-    weight *= decayFactor;
+    final minutesSincePublish = currentTime.difference(publishedAt).inMinutes;
+    
+    if (minutesSincePublish > 0) {
+      // weight = weight * (decay_factor ^ (minutes / (decay_hours * 60)))
+      final periods = minutesSincePublish / (_recencyDecayHours * 60);
+      weight *= (identical(_recencyDecayFactor, 1.0) ? 1.0 : _power(_recencyDecayFactor, periods));
+    }
 
     return weight;
   }
 
-  /// Convert hours since publish to a decay factor
-  static double _hoursToDecayFactor(int hours) {
-    if (hours <= 0) return 1.0;
-    // Exponential decay: each _recencyDecayHours, weight decays by _recencyDecayFactor
-    final periods = hours / _recencyDecayHours;
-    return _recencyDecayFactor * periods;
+  /// Math helper for exponential decay
+  static double _power(double base, double exponent) {
+    import 'dart:math' as math;
+    return math.pow(base, exponent).toDouble();
   }
 
   /// Calculate tag match score between article tags and user preference tags
   static double calculateTagMatchScore(
     List<String> articleTags,
-    List<String> userPreferenceTags,
+    Map<String, double> userPreferenceWeights,
   ) {
-    if (articleTags.isEmpty || userPreferenceTags.isEmpty) return 0.0;
+    if (articleTags.isEmpty || userPreferenceWeights.isEmpty) return 0.5;
 
-    int matches = 0;
+    double totalScore = 0.0;
+    int count = 0;
+    
     for (final tag in articleTags) {
-      if (userPreferenceTags.contains(tag)) {
-        matches++;
+      if (userPreferenceWeights.containsKey(tag)) {
+        totalScore += userPreferenceWeights[tag]!;
+        count++;
       }
     }
 
-    return matches / articleTags.length;
-  }
-
-  /// Update user preference tag weights based on interaction
-  static Map<String, double> updateTagPreferences(
-    Map<String, double> currentPreferences,
-    List<String> articleTags, {
-    required bool isLiked,
-    required bool isDisliked,
-  }) {
-    final updated = Map<String, double>.from(currentPreferences);
-
-    for (final tag in articleTags) {
-      final current = updated[tag] ?? 1.0;
-      if (isLiked) {
-        updated[tag] = current * 1.2; // Boost liked tags
-      } else if (isDisliked) {
-        updated[tag] = current * 0.8; // Reduce disliked tags
-      }
-    }
-
-    return updated;
+    if (count == 0) return 0.5;
+    return totalScore / count;
   }
 }
