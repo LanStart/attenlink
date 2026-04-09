@@ -1,0 +1,520 @@
+name: Release
+
+on:
+  push:
+    tags:
+      - 'v*'
+  workflow_dispatch:
+    inputs:
+      tag:
+        description: 'Release tag (e.g. v0.0.1)'
+        required: true
+        type: string
+      is_prerelease:
+        description: 'Pre-release'
+        required: false
+        type: boolean
+        default: true
+
+env:
+  FLUTTER_VERSION: '3.x'
+
+jobs:
+  prepare:
+    name: Prepare
+    runs-on: ubuntu-latest
+    outputs:
+      version: ${{ steps.version.outputs.version }}
+      build_number: ${{ steps.version.outputs.build_number }}
+      tag: ${{ steps.version.outputs.tag }}
+      checkout_ref: ${{ steps.version.outputs.checkout_ref }}
+      is_prerelease: ${{ steps.version.outputs.is_prerelease }}
+
+    steps:
+      - name: Extract version info
+        id: version
+        run: |
+          if [[ "${{ github.event_name }}" == "push" ]]; then
+            TAG="${GITHUB_REF#refs/tags/}"
+            CHECKOUT_REF="${GITHUB_REF}"
+          else
+            RAW_TAG="${{ github.event.inputs.tag }}"
+            if [[ "${RAW_TAG}" == refs/tags/* ]]; then
+              TAG="${RAW_TAG#refs/tags/}"
+            elif [[ "${RAW_TAG}" == v* ]]; then
+              TAG="${RAW_TAG}"
+            else
+              TAG="v${RAW_TAG}"
+            fi
+            CHECKOUT_REF="${GITHUB_SHA}"
+          fi
+
+          VERSION="${TAG#v}"
+
+          BUILD_NUMBER=$(echo "$VERSION" | grep -oE '[0-9]+$' || echo "1")
+          if [[ "$VERSION" == *"+"* ]]; then
+            BUILD_NUMBER="${VERSION#*+}"
+            VERSION="${VERSION%%+*}"
+          fi
+
+          echo "tag=${TAG}" >> $GITHUB_OUTPUT
+          echo "version=${VERSION}" >> $GITHUB_OUTPUT
+          echo "build_number=${BUILD_NUMBER}" >> $GITHUB_OUTPUT
+          echo "checkout_ref=${CHECKOUT_REF}" >> $GITHUB_OUTPUT
+
+          if [[ "${{ github.event_name }}" == "push" ]]; then
+            if [[ "${TAG}" == *"alpha"* || "${TAG}" == *"beta"* || "${TAG}" == *"rc"* ]]; then
+              echo "is_prerelease=true" >> $GITHUB_OUTPUT
+            else
+              echo "is_prerelease=false" >> $GITHUB_OUTPUT
+            fi
+          else
+            echo "is_prerelease=${{ github.event.inputs.is_prerelease }}" >> $GITHUB_OUTPUT
+          fi
+
+          echo "========================================="
+          echo "  Tag:            ${TAG}"
+          echo "  Version:        ${VERSION}"
+          echo "  Build Number:   ${BUILD_NUMBER}"
+          echo "  Pre-release:    $(cat $GITHUB_OUTPUT | grep is_prerelease | cut -d= -f2)"
+          echo "========================================="
+
+  build-android:
+    name: Build_Android
+    needs: prepare
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ needs.prepare.outputs.checkout_ref }}
+
+      - name: Setup Java
+        uses: actions/setup-java@v4
+        with:
+          distribution: 'zulu'
+          java-version: '17'
+
+      - name: Setup Flutter
+        uses: subosito/flutter-action@v2
+        with:
+          flutter-version: ${{ env.FLUTTER_VERSION }}
+          channel: 'stable'
+          cache: true
+
+      - name: Install dependencies
+        run: flutter pub get
+
+      - name: Update version in pubspec.yaml
+        run: |
+          sed -i "s/^version:.*/version: ${{ needs.prepare.outputs.version }}+${{ needs.prepare.outputs.build_number }}/" pubspec.yaml
+          head -5 pubspec.yaml
+
+      - name: Build APK
+        run: flutter build apk --release --build-number=${{ needs.prepare.outputs.build_number }}
+
+      - name: Build App Bundle
+        run: flutter build appbundle --release --build-number=${{ needs.prepare.outputs.build_number }}
+
+      - name: Rename artifacts
+        run: |
+          mv build/app/outputs/flutter-apk/app-release.apk \
+            build/app/outputs/flutter-apk/AttenLink-${{ needs.prepare.outputs.version }}-android.apk
+          mv build/app/outputs/bundle/release/app-release.aab \
+            build/app/outputs/bundle/release/AttenLink-${{ needs.prepare.outputs.version }}-android.aab
+
+      - name: Upload APK
+        uses: actions/upload-artifact@v4
+        with:
+          name: release-android-apk
+          path: build/app/outputs/flutter-apk/AttenLink-*.apk
+          if-no-files-found: error
+          retention-days: 30
+
+      - name: Upload AAB
+        uses: actions/upload-artifact@v4
+        with:
+          name: release-android-aab
+          path: build/app/outputs/bundle/release/AttenLink-*.aab
+          if-no-files-found: error
+          retention-days: 30
+
+  build-windows:
+    name: Build_Windows
+    needs: prepare
+    runs-on: windows-latest
+    timeout-minutes: 45
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ needs.prepare.outputs.checkout_ref }}
+
+      - name: Setup Flutter
+        uses: subosito/flutter-action@v2
+        with:
+          flutter-version: ${{ env.FLUTTER_VERSION }}
+          channel: 'stable'
+          cache: true
+
+      - name: Install dependencies
+        run: flutter pub get
+
+      - name: Update version in pubspec.yaml
+        shell: pwsh
+        run: |
+          (Get-Content pubspec.yaml) -replace '^version:.*', 'version: ${{ needs.prepare.outputs.version }}+${{ needs.prepare.outputs.build_number }}' | Set-Content pubspec.yaml
+          Get-Content pubspec.yaml -Head 5
+
+      - name: Build Windows
+        run: flutter build windows --build-number=${{ needs.prepare.outputs.build_number }}
+
+      - name: Package Windows
+        shell: pwsh
+        run: |
+          $version = "${{ needs.prepare.outputs.version }}"
+          $sourceDir = "build\windows\x64\runner\Release"
+          $zipName = "AttenLink-${version}-windows-x64.zip"
+
+          if (-not (Test-Path $sourceDir)) {
+            Write-Error "Build output not found: $sourceDir"
+            exit 1
+          }
+
+          Compress-Archive -Path "$sourceDir\*" -DestinationPath $zipName
+          Write-Host "Created: $zipName"
+          Get-Item $zipName | Select-Object Name, Length
+
+      - name: Upload Windows artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: release-windows
+          path: AttenLink-*-windows-x64.zip
+          if-no-files-found: error
+          retention-days: 30
+
+  build-linux:
+    name: Build_Linux
+    needs: prepare
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ needs.prepare.outputs.checkout_ref }}
+
+      - name: Install Linux dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y \
+            libgtk-3-dev \
+            libblkid-dev \
+            liblzma-dev \
+            ninja-build \
+            libglu1-mesa
+
+      - name: Setup Flutter
+        uses: subosito/flutter-action@v2
+        with:
+          flutter-version: ${{ env.FLUTTER_VERSION }}
+          channel: 'stable'
+          cache: true
+
+      - name: Install dependencies
+        run: flutter pub get
+
+      - name: Update version in pubspec.yaml
+        run: |
+          sed -i "s/^version:.*/version: ${{ needs.prepare.outputs.version }}+${{ needs.prepare.outputs.build_number }}/" pubspec.yaml
+          head -5 pubspec.yaml
+
+      - name: Build Linux
+        run: flutter build linux --build-number=${{ needs.prepare.outputs.build_number }}
+
+      - name: Package Linux
+        run: |
+          version="${{ needs.prepare.outputs.version }}"
+          sourceDir="build/linux/x64/release/bundle"
+          tarName="AttenLink-${version}-linux-x64.tar.gz"
+
+          if [ ! -d "$sourceDir" ]; then
+            echo "Error: Build output not found: $sourceDir"
+            exit 1
+          fi
+
+          tar -czf "$tarName" -C "$sourceDir" .
+          echo "Created: $tarName"
+          ls -lh "$tarName"
+
+      - name: Upload Linux artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: release-linux
+          path: AttenLink-*-linux-x64.tar.gz
+          if-no-files-found: error
+          retention-days: 30
+
+  build-macos:
+    name: Build_macOS
+    needs: prepare
+    runs-on: macos-latest
+    timeout-minutes: 45
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ needs.prepare.outputs.checkout_ref }}
+
+      - name: Setup Flutter
+        uses: subosito/flutter-action@v2
+        with:
+          flutter-version: ${{ env.FLUTTER_VERSION }}
+          channel: 'stable'
+          cache: true
+
+      - name: Install dependencies
+        run: flutter pub get
+
+      - name: Update version in pubspec.yaml
+        run: |
+          sed -i '' "s/^version:.*/version: ${{ needs.prepare.outputs.version }}+${{ needs.prepare.outputs.build_number }}/" pubspec.yaml
+          head -5 pubspec.yaml
+
+      - name: Build macOS
+        run: flutter build macos --build-number=${{ needs.prepare.outputs.build_number }}
+
+      - name: Package macOS
+        run: |
+          version="${{ needs.prepare.outputs.version }}"
+          appPath="build/macos/Build/Products/Release/attenlink.app"
+          zipName="AttenLink-${version}-macos.zip"
+
+          if [ ! -d "$appPath" ]; then
+            echo "Error: App bundle not found: $appPath"
+            ls -la build/macos/Build/Products/Release/ || true
+            exit 1
+          fi
+
+          ditto -c -k --keepParent "$appPath" "$zipName"
+          echo "Created: $zipName"
+          ls -lh "$zipName"
+
+      - name: Upload macOS artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: release-macos
+          path: AttenLink-*-macos.zip
+          if-no-files-found: error
+          retention-days: 30
+
+  build-ios:
+    name: Build_iOS
+    needs: prepare
+    runs-on: macos-latest
+    timeout-minutes: 45
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ needs.prepare.outputs.checkout_ref }}
+
+      - name: Setup Flutter
+        uses: subosito/flutter-action@v2
+        with:
+          flutter-version: ${{ env.FLUTTER_VERSION }}
+          channel: 'stable'
+          cache: true
+
+      - name: Install dependencies
+        run: flutter pub get
+
+      - name: Update version in pubspec.yaml
+        run: |
+          sed -i '' "s/^version:.*/version: ${{ needs.prepare.outputs.version }}+${{ needs.prepare.outputs.build_number }}/" pubspec.yaml
+          head -5 pubspec.yaml
+
+      - name: Build iOS (no codesign)
+        run: flutter build ios --release --no-codesign --build-number=${{ needs.prepare.outputs.build_number }}
+
+      - name: Package iOS
+        run: |
+          version="${{ needs.prepare.outputs.version }}"
+          ipaPath="build/ios/ipa"
+          if [ -d "$ipaPath" ]; then
+            mv "$ipaPath"/*.ipa "AttenLink-${version}-ios.ipa" 2>/dev/null || true
+          fi
+
+          artifactPath="build/ios/archive/Runner.xcarchive"
+          if [ -d "$artifactPath" ]; then
+            zip -r "AttenLink-${version}-ios.xcarchive.zip" "$artifactPath"
+          fi
+
+      - name: Upload iOS artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: release-ios
+          path: |
+            AttenLink-*-ios.ipa
+            AttenLink-*-ios.xcarchive.zip
+          if-no-files-found: warn
+          retention-days: 30
+
+  generate-changelog:
+    name: Generate_Changelog
+    needs: prepare
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ needs.prepare.outputs.checkout_ref }}
+          fetch-depth: 0
+
+      - name: Generate changelog
+        id: changelog
+        uses: mikepenz/release-changelog-builder-action@v5
+        with:
+          configuration: |
+            {
+              "template": "# 📋 Changelog\n\n## 🚀 What's Changed\n\n${{UNCATEGORIZED}}\n\n---\n\n**Full Changelog**: https://github.com/${owner}/${repository}/compare/${previousTag}...${currentTag}",
+              "categories": [
+                {
+                  "title": "## 🚀 New Features",
+                  "labels": ["feature", "enhancement"]
+                },
+                {
+                  "title": "## 🐛 Bug Fixes",
+                  "labels": ["bug", "fix"]
+                },
+                {
+                  "title": "## 🔧 Improvements",
+                  "labels": ["improvement", "refactor"]
+                },
+                {
+                  "title": "## 📝 Documentation",
+                  "labels": ["documentation", "docs"]
+                }
+              ],
+              "label_extractor": [
+                {
+                  "pattern": "^(feat|feature)(\\(.*\\))?:",
+                  "on_property": "title",
+                  "method": "match",
+                  "flags": "i"
+                },
+                {
+                  "pattern": "^(fix|bugfix)(\\(.*\\))?:",
+                  "on_property": "title",
+                  "method": "match",
+                  "flags": "i"
+                },
+                {
+                  "pattern": "^(improve|refactor|perf)(\\(.*\\))?:",
+                  "on_property": "title",
+                  "method": "match",
+                  "flags": "i"
+                },
+                {
+                  "pattern": "^(docs|doc)(\\(.*\\))?:",
+                  "on_property": "title",
+                  "method": "match",
+                  "flags": "i"
+                }
+              ]
+            }
+          toTag: ${{ needs.prepare.outputs.tag }}
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Write changelog to file
+        run: |
+          cat > changelog.md << 'HEADER'
+          # AttenLink ${{ needs.prepare.outputs.tag }}
+
+          > 🤖 AI 驱动的事实资讯聚合工具 — 专注事实，智能推荐
+
+          HEADER
+          echo "${{ steps.changelog.outputs.changelog }}" >> changelog.md
+          cat changelog.md
+
+      - name: Upload changelog
+        uses: actions/upload-artifact@v4
+        with:
+          name: changelog
+          path: changelog.md
+          retention-days: 30
+
+  publish:
+    name: Publish
+    needs:
+      - prepare
+      - build-android
+      - build-windows
+      - build-linux
+      - build-macos
+      - build-ios
+      - generate-changelog
+    runs-on: ubuntu-latest
+    if: ${{ always() && !cancelled() && needs.build-android.result == 'success' && needs.build-windows.result == 'success' && needs.build-linux.result == 'success' && needs.build-macos.result == 'success' }}
+    concurrency:
+      group: "publish-release"
+    environment:
+      name: ${{ needs.prepare.outputs.is_prerelease == 'true' && 'staging' || 'production' }}
+    permissions:
+      contents: write
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ needs.prepare.outputs.checkout_ref }}
+
+      - name: Download all artifacts
+        uses: actions/download-artifact@v4
+        with:
+          path: ./release-artifacts
+          pattern: release-*
+
+      - name: List release artifacts
+        run: |
+          echo "=== Release Artifacts ==="
+          find ./release-artifacts -type f | sort
+          echo "========================="
+
+      - name: Download changelog
+        uses: actions/download-artifact@v4
+        with:
+          name: changelog
+          path: ./changelog-artifact
+
+      - name: Create GitHub Release
+        uses: ncipollo/release-action@v1
+        with:
+          artifacts: "./release-artifacts/**/*"
+          bodyFile: ./changelog-artifact/changelog.md
+          draft: true
+          prerelease: ${{ needs.prepare.outputs.is_prerelease == 'true' }}
+          tag: ${{ needs.prepare.outputs.tag }}
+          name: "AttenLink ${{ needs.prepare.outputs.tag }}"
+          token: ${{ secrets.GITHUB_TOKEN }}
+          commit: ${{ needs.prepare.outputs.checkout_ref }}
+
+      - name: Release summary
+        run: |
+          echo "🎉 Release created successfully!"
+          echo ""
+          echo "  Tag:         ${{ needs.prepare.outputs.tag }}"
+          echo "  Version:     ${{ needs.prepare.outputs.version }}"
+          echo "  Pre-release: ${{ needs.prepare.outputs.is_prerelease }}"
+          echo "  Status:      Draft (needs manual review)"
+          echo ""
+          echo "  👉 Go to GitHub Releases to review and publish."

@@ -1,0 +1,46 @@
+name: attenlink
+description: "AI-driven fact-focused news aggregation app"
+publish_to: 'none'
+version: 0.0.1+1
+
+environment:
+  sdk: ^3.11.4
+
+dependencies:
+  flutter:
+    sdk: flutter
+
+  # UI
+  cupertino_icons: ^1.0.8
+
+  # State Management
+  flutter_riverpod: ^2.6.1
+
+  # Network
+  dio: ^5.8.0+1
+
+  # Local Storage
+  hive: ^2.2.3
+  hive_flutter: ^1.1.0
+  path_provider: ^2.1.5
+
+  # Feed Parsing
+  webfeed: ^0.7.0
+
+  # Utilities
+  uuid: ^4.5.1
+  intl: ^0.17.0
+  url_launcher: ^6.3.1
+  share_plus: ^10.1.4
+  cached_network_image: ^3.4.1
+  flutter_animate: ^4.5.2
+  shimmer: ^3.0.0
+  logger: ^2.5.0
+
+dev_dependencies:
+  flutter_test:
+    sdk: flutter
+  flutter_lints: ^6.0.0
+
+flutter:
+  uses-material-design: true
