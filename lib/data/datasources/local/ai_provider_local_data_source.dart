@@ -4,6 +4,7 @@ import '../../models/ai_provider_config.dart';
 import '../../../core/utils/logger.dart';
 
 /// Local data source for AI provider configurations using Hive
+class AiProviderLocalDataSource {
   static const _boxName = 'ai_providers';
 
   Box<String>? _box;
